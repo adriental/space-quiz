@@ -470,6 +470,7 @@
     }
 
     .result-caption { color: var(--muted); font-weight: 650; }
+    .personal-best { margin-top: 10px; color: var(--muted); font-weight: 650; }
     .result-screen .restart-button { margin-top: 24px; }
 
     .hidden { display: none !important; }
@@ -597,6 +598,7 @@
         <p class="result-copy" id="result-copy"></p>
         <div class="result-score" id="final-score">0/10</div>
         <div class="result-caption">correct answers</div>
+        <div class="personal-best" id="personal-best" aria-live="polite"></div>
         <button class="restart-button" id="restart-button" type="button"><span aria-hidden="true">↻</span> Play again</button>
       </div>
     </section>
@@ -627,6 +629,7 @@
     const progressBar = document.querySelector('[role="progressbar"]');
     const feedback = document.getElementById("feedback");
     const nextButton = document.getElementById("next-button");
+    const personalBestKey = "orbit-personal-best";
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
@@ -688,6 +691,16 @@
       progressFill.style.width = "100%";
       progressBar.setAttribute("aria-valuenow", questions.length);
       document.getElementById("final-score").textContent = `${score}/${questions.length}`;
+      const storedBest = localStorage.getItem(personalBestKey);
+      const parsedBest = storedBest === null ? null : Number(storedBest);
+      const previousBest = Number.isInteger(parsedBest) && parsedBest >= 0 && parsedBest <= questions.length
+        ? parsedBest
+        : null;
+      const personalBest = previousBest === null ? score : Math.max(previousBest, score);
+      if (previousBest === null || score > previousBest) {
+        localStorage.setItem(personalBestKey, String(personalBest));
+      }
+      document.getElementById("personal-best").textContent = `Personal best: ${personalBest}/${questions.length}`;
 
       let result;
       if (score === questions.length) {
