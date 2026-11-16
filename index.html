@@ -362,6 +362,28 @@
     .feedback.good { color: var(--correct); animation: rise-in 240ms ease both; }
     .feedback.bad { color: var(--wrong); animation: rise-in 240ms ease both; }
 
+    .learning-fact {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--purple) 24%, var(--line));
+      border-radius: 12px;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--soft-purple) 68%, var(--card));
+      font-size: 13px;
+      animation: rise-in 240ms ease both;
+    }
+
+    .learning-fact strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--purple);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .learning-fact p { margin: 0; }
+
     .card-footer {
       display: flex;
       min-height: 58px;
@@ -581,6 +603,10 @@
         </div>
         <div class="options" id="options" role="group" aria-label="Answer choices"></div>
         <p class="feedback" id="feedback" aria-live="assertive"></p>
+        <aside class="learning-fact hidden" id="learning-fact" role="status" aria-live="polite" aria-atomic="true">
+          <strong>Space fact</strong>
+          <p id="learning-fact-text"></p>
+        </aside>
         <footer class="card-footer">
           <p class="tiny-note">Trust your cosmic instincts ✨</p>
           <button class="next-button" id="next-button" type="button">Next question <span aria-hidden="true">→</span></button>
@@ -624,16 +650,16 @@
 
   <script>
     const questions = [
-      { category: "Solar system", question: "Which planet is known as the Red Planet?", choices: ["Venus", "Mars", "Jupiter", "Mercury"], answer: 1 },
-      { category: "Moon mission", question: "What is the name of the first human to walk on the Moon?", choices: ["Yuri Gagarin", "Buzz Aldrin", "Neil Armstrong", "John Glenn"], answer: 2 },
-      { category: "Star stuff", question: "What is the closest star to Earth?", choices: ["Sirius", "Proxima Centauri", "The Sun", "Polaris"], answer: 2 },
-      { category: "Solar system", question: "Which planet has the most prominent ring system?", choices: ["Saturn", "Neptune", "Uranus", "Earth"], answer: 0 },
-      { category: "Deep space", question: "What is the name of our home galaxy?", choices: ["Andromeda", "Whirlpool", "Sombrero", "Milky Way"], answer: 3 },
-      { category: "Space science", question: "What force keeps planets in orbit around the Sun?", choices: ["Magnetism", "Gravity", "Friction", "Solar wind"], answer: 1 },
-      { category: "Solar system", question: "Which is the largest planet in our solar system?", choices: ["Saturn", "Earth", "Jupiter", "Neptune"], answer: 2 },
-      { category: "Space science", question: "What do we call a rocky object that burns brightly in Earth's atmosphere?", choices: ["Meteor", "Asteroid", "Comet", "Satellite"], answer: 0 },
-      { category: "Moon mission", question: "Which planet is famous for its Great Red Spot?", choices: ["Mars", "Jupiter", "Venus", "Saturn"], answer: 1 },
-      { category: "Deep space", question: "What is a light-year a measurement of?", choices: ["Time", "Brightness", "Distance", "Speed"], answer: 2 }
+      { category: "Solar system", question: "Which planet is known as the Red Planet?", choices: ["Venus", "Mars", "Jupiter", "Mercury"], answer: 1, fact: "Mars looks red because iron-rich minerals in its soil have rusted." },
+      { category: "Moon mission", question: "What is the name of the first human to walk on the Moon?", choices: ["Yuri Gagarin", "Buzz Aldrin", "Neil Armstrong", "John Glenn"], answer: 2, fact: "Neil Armstrong and Buzz Aldrin landed on the Moon during Apollo 11 in 1969." },
+      { category: "Star stuff", question: "What is the closest star to Earth?", choices: ["Sirius", "Proxima Centauri", "The Sun", "Polaris"], answer: 2, fact: "The Sun is about 150 million kilometers (93 million miles) from Earth." },
+      { category: "Solar system", question: "Which planet has the most prominent ring system?", choices: ["Saturn", "Neptune", "Uranus", "Earth"], answer: 0, fact: "Saturn's rings are made mostly of countless pieces of ice, with some rocky debris." },
+      { category: "Deep space", question: "What is the name of our home galaxy?", choices: ["Andromeda", "Whirlpool", "Sombrero", "Milky Way"], answer: 3, fact: "The Milky Way is a barred spiral galaxy containing hundreds of billions of stars." },
+      { category: "Space science", question: "What force keeps planets in orbit around the Sun?", choices: ["Magnetism", "Gravity", "Friction", "Solar wind"], answer: 1, fact: "The Sun's gravity continually bends each planet's forward motion into an orbit." },
+      { category: "Solar system", question: "Which is the largest planet in our solar system?", choices: ["Saturn", "Earth", "Jupiter", "Neptune"], answer: 2, fact: "Jupiter is so massive that it outweighs all the other planets combined." },
+      { category: "Space science", question: "What do we call a rocky object that burns brightly in Earth's atmosphere?", choices: ["Meteor", "Asteroid", "Comet", "Satellite"], answer: 0, fact: "A meteor's bright streak is produced as a space rock heats the air during its atmospheric entry." },
+      { category: "Moon mission", question: "Which planet is famous for its Great Red Spot?", choices: ["Mars", "Jupiter", "Venus", "Saturn"], answer: 1, fact: "Jupiter's Great Red Spot is a giant storm that has been observed for centuries." },
+      { category: "Deep space", question: "What is a light-year a measurement of?", choices: ["Time", "Brightness", "Distance", "Speed"], answer: 2, fact: "One light-year is the distance light travels in a year: about 9.46 trillion kilometers." }
     ];
 
     const quizScreen = document.getElementById("quiz-screen");
@@ -646,6 +672,8 @@
     const progressFill = document.getElementById("progress-fill");
     const progressBar = document.querySelector('[role="progressbar"]');
     const feedback = document.getElementById("feedback");
+    const learningFact = document.getElementById("learning-fact");
+    const learningFactText = document.getElementById("learning-fact-text");
     const nextButton = document.getElementById("next-button");
     const reviewScreen = document.getElementById("review-screen");
     const reviewButton = document.getElementById("review-button");
@@ -665,6 +693,8 @@
       options.replaceChildren();
       feedback.textContent = "";
       feedback.className = "feedback";
+      learningFactText.textContent = "";
+      learningFact.classList.add("hidden");
       nextButton.disabled = true;
       nextButton.classList.remove("visible");
       nextButton.innerHTML = currentQuestion === questions.length - 1
@@ -703,6 +733,8 @@
         feedback.textContent = `Not quite! The answer is ${questions[currentQuestion].choices[correct]}.`;
         feedback.classList.add("bad");
       }
+      learningFactText.textContent = questions[currentQuestion].fact;
+      learningFact.classList.remove("hidden");
       nextButton.disabled = false;
       nextButton.classList.add("visible");
       nextButton.focus();
