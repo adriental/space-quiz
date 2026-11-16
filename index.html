@@ -312,7 +312,7 @@
       background: var(--soft-purple);
     }
 
-    .option:focus-visible, .next-button:focus-visible, .restart-button:focus-visible {
+    .option:focus-visible, .next-button:focus-visible, .restart-button:focus-visible, .review-button:focus-visible, .back-button:focus-visible {
       outline: 3px solid var(--purple);
       outline-offset: 3px;
       box-shadow: 0 0 0 6px color-mix(in srgb, var(--purple) 18%, transparent);
@@ -379,7 +379,7 @@
       font-size: 12px;
     }
 
-    .next-button, .restart-button {
+    .next-button, .restart-button, .review-button, .back-button {
       display: inline-flex;
       min-height: 44px;
       align-items: center;
@@ -399,7 +399,7 @@
     .next-button { visibility: hidden; opacity: 0; pointer-events: none; transform: translateY(4px); }
     .next-button.visible { visibility: visible; opacity: 1; pointer-events: auto; transform: translateY(0); }
     .next-button:disabled { cursor: default; }
-    .next-button:hover, .restart-button:hover { transform: translateY(-2px); box-shadow: 0 11px 22px rgba(106, 90, 249, .3); }
+    .next-button:hover, .restart-button:hover, .review-button:hover, .back-button:hover { transform: translateY(-2px); box-shadow: 0 11px 22px rgba(106, 90, 249, .3); }
 
     .result-screen {
       position: relative;
@@ -471,7 +471,17 @@
 
     .result-caption { color: var(--muted); font-weight: 650; }
     .personal-best { margin-top: 10px; color: var(--muted); font-weight: 650; }
-    .result-screen .restart-button { margin-top: 24px; }
+    .result-screen .review-button { margin-top: 24px; }
+    .result-screen .restart-button { margin-top: 12px; }
+
+    .review-screen { text-align: left; }
+    .review-screen h1 { margin-bottom: 20px; }
+    .missed-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .missed-answer { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--card) 78%, var(--soft-purple)); }
+    .missed-answer h2 { margin: 0 0 10px; font-size: 16px; line-height: 1.4; }
+    .missed-answer p { margin: 5px 0 0; color: var(--muted); }
+    .missed-answer .correct-answer { color: var(--correct); font-weight: 700; }
+    .review-screen .back-button { display: flex; margin: 22px auto 0; }
 
     .hidden { display: none !important; }
 
@@ -599,7 +609,15 @@
         <div class="result-score" id="final-score">0/10</div>
         <div class="result-caption">correct answers</div>
         <div class="personal-best" id="personal-best" aria-live="polite"></div>
+        <button class="review-button hidden" id="review-button" type="button">Review missed answers</button>
         <button class="restart-button" id="restart-button" type="button"><span aria-hidden="true">↻</span> Play again</button>
+      </div>
+
+      <div id="review-screen" class="card-inner review-screen hidden">
+        <p class="eyebrow">Mission review</p>
+        <h1 id="review-title" tabindex="-1">Review your missed answers</h1>
+        <ol class="missed-list" id="missed-list"></ol>
+        <button class="back-button" id="back-button" type="button">Back to results</button>
       </div>
     </section>
   </main>
@@ -629,10 +647,14 @@
     const progressBar = document.querySelector('[role="progressbar"]');
     const feedback = document.getElementById("feedback");
     const nextButton = document.getElementById("next-button");
+    const reviewScreen = document.getElementById("review-screen");
+    const reviewButton = document.getElementById("review-button");
+    const missedList = document.getElementById("missed-list");
     const personalBestKey = "orbit-personal-best";
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
+    let selectedAnswers = [];
 
     function renderQuestion() {
       const item = questions[currentQuestion];
@@ -664,6 +686,7 @@
     function selectAnswer(selected, selectedButton) {
       if (answered) return;
       answered = true;
+      selectedAnswers[currentQuestion] = selected;
       const correct = questions[currentQuestion].answer;
       const buttons = [...options.children];
       buttons.forEach(button => { button.disabled = true; });
@@ -688,6 +711,7 @@
     function showResults() {
       quizScreen.classList.add("hidden");
       resultScreen.classList.remove("hidden");
+      reviewScreen.classList.add("hidden");
       progressFill.style.width = "100%";
       progressBar.setAttribute("aria-valuenow", questions.length);
       document.getElementById("final-score").textContent = `${score}/${questions.length}`;
@@ -701,6 +725,7 @@
         localStorage.setItem(personalBestKey, String(personalBest));
       }
       document.getElementById("personal-best").textContent = `Personal best: ${personalBest}/${questions.length}`;
+      reviewButton.classList.toggle("hidden", score === questions.length);
 
       let result;
       if (score === questions.length) {
@@ -719,6 +744,33 @@
       document.getElementById("restart-button").focus();
     }
 
+    function showReview() {
+      missedList.replaceChildren();
+      questions.forEach((item, index) => {
+        if (selectedAnswers[index] === item.answer) return;
+
+        const entry = document.createElement("li");
+        entry.className = "missed-answer";
+        const heading = document.createElement("h2");
+        heading.textContent = item.question;
+        const playerAnswer = document.createElement("p");
+        const playerLabel = document.createElement("strong");
+        playerLabel.textContent = "Your answer: ";
+        playerAnswer.append(playerLabel, item.choices[selectedAnswers[index]]);
+        const correctAnswer = document.createElement("p");
+        correctAnswer.className = "correct-answer";
+        const correctLabel = document.createElement("strong");
+        correctLabel.textContent = "Correct answer: ";
+        correctAnswer.append(correctLabel, item.choices[item.answer]);
+        entry.append(heading, playerAnswer, correctAnswer);
+        missedList.append(entry);
+      });
+
+      resultScreen.classList.add("hidden");
+      reviewScreen.classList.remove("hidden");
+      document.getElementById("review-title").focus();
+    }
+
     nextButton.addEventListener("click", () => {
       if (!answered) return;
       if (currentQuestion === questions.length - 1) {
@@ -734,13 +786,23 @@
     document.getElementById("restart-button").addEventListener("click", () => {
       currentQuestion = 0;
       score = 0;
+      selectedAnswers = [];
+      missedList.replaceChildren();
       scoreText.textContent = "0";
       resultScreen.classList.remove("celebration");
       resultScreen.classList.add("hidden");
+      reviewScreen.classList.add("hidden");
       quizScreen.classList.remove("hidden");
       renderQuestion();
       questionText.setAttribute("tabindex", "-1");
       questionText.focus();
+    });
+
+    reviewButton.addEventListener("click", showReview);
+    document.getElementById("back-button").addEventListener("click", () => {
+      reviewScreen.classList.add("hidden");
+      resultScreen.classList.remove("hidden");
+      reviewButton.focus();
     });
 
     renderQuestion();
